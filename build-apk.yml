@@ -1,0 +1,61 @@
+# Zovo SMS — one-click Android APK build (free GitHub cloud machine).
+# How to use (no coding, no Android Studio):
+#   1. Create a free account at https://github.com/signup
+#   2. Create a new repository (web) and upload this whole folder into it
+#      (GitHub web UI accepts drag-and-drop of the full folder).
+#   3. Open the repository → Actions tab → enable workflows if asked →
+#      click "Build Android APK" → "Run workflow" → "Run workflow".
+#   4. Wait ~10-20 min → open the finished run → download "Zovo-SMS-apk"
+#      under Artifacts → install Zovo-SMS.apk on your phone.
+# API address: the APK uses the app's built-in default server URL.
+# To bake in a different one, add a repository secret named
+# EXPO_PUBLIC_API_URL (Settings → Secrets and variables → Actions).
+# The in-app ⚙️ setting can also change the server anytime.
+name: Build Android APK
+
+on:
+  workflow_dispatch: {}
+  push:
+    branches: [main, master]
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    env:
+      CI: '1'
+      EXPO_NO_TELEMETRY: '1'
+      EXPO_PUBLIC_API_URL: ${{ secrets.EXPO_PUBLIC_API_URL }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Prebuild Android project
+        run: npx expo prebuild --platform android --clean
+
+      - name: Build debug APK
+        run: cd android && chmod +x gradlew && ./gradlew assembleDebug --no-daemon
+
+      - name: Rename APK
+        run: cp android/app/build/outputs/apk/debug/app-debug.apk Zovo-SMS.apk
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Zovo-SMS-apk
+          path: Zovo-SMS.apk
+          retention-days: 30
